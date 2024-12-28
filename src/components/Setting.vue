@@ -8,7 +8,14 @@
           <el-col :sm="12" :lg="5">
             <!-- theme select-->
             <el-form-item :label="$t('message.dark_mode')">
-              <el-switch v-model='darkMode' @change="changeTheme"></el-switch>
+              <el-select v-model='themeMode' @change="changeTheme">
+                <el-option
+                  v-for="(label, theme) in themeList"
+                  :key="theme"
+                  :value="theme"
+                  :label="label">
+                </el-option>
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :sm="12" :lg="7">
@@ -48,7 +55,7 @@
               </span>
               <!-- font-family select -->
               <el-select v-model="form.fontFamily" @visible-change="getAllFonts" allow-create default-first-option
-                         filterable multiple>
+                         filterable multiple class="setting-font-select">
                 <el-option
                   v-for="(font, index) in allFonts"
                   :key="index"
@@ -150,7 +157,7 @@
 
 <script type="text/javascript">
 import storage from '@/storage.js';
-import {ipcRenderer} from 'electron';
+import { ipcRenderer } from 'electron';
 import LanguageSelector from '@/components/LanguageSelector';
 
 export default {
@@ -169,17 +176,26 @@ export default {
       // electronVersion: process.versions.electron,
       allFonts: [],
       loadingFonts: false,
-      darkMode: localStorage.theme == 'dark',
+      themeMode: 'system',
+      themeList: {system: 'System', light: 'Light', dark: 'Dark'},
     };
   },
-  components: {LanguageSelector},
+  components: { LanguageSelector },
   methods: {
     show() {
       this.visible = true;
     },
     restoreSettings() {
-      let settings = storage.getSetting();
-      this.form = {...this.form, ...settings};
+      const settings = storage.getSetting();
+      this.form = { ...this.form, ...settings };
+
+      // theme
+      let theme = localStorage.theme;
+      if (!Object.keys(this.themeList).includes(theme)) {
+        theme = 'system';
+      }
+
+      this.themeMode = theme;
     },
     saveSettings() {
       storage.saveSettings(this.form);
@@ -188,14 +204,14 @@ export default {
       this.$bus.$emit('reloadSettings', Object.assign({}, this.form));
     },
     changeTheme() {
-      const themeName = this.darkMode ? 'dark' : 'chalk';
-      globalChangeTheme(themeName);
+      localStorage.theme = this.themeMode;
+      globalChangeTheme(this.themeMode);
     },
     changeZoom() {
-      const {webFrame} = require('electron');
-      let zoomFactor = this.form.zoomFactor;
+      const { webFrame } = require('electron');
+      let { zoomFactor } = this.form;
 
-      zoomFactor = zoomFactor ? zoomFactor : 1.0;
+      zoomFactor = zoomFactor || 1.0;
       webFrame.setZoomFactor(zoomFactor);
     },
     showImportDialog() {
@@ -239,18 +255,8 @@ export default {
     exportConnection() {
       let connections = storage.getConnections(true);
       connections = this.$util.base64Encode(JSON.stringify(connections));
-      this.createAndDownloadFile('connections.ano', connections);
+      this.$util.createAndDownloadFile('connections.ano', connections);
       this.visible = false;
-    },
-    createAndDownloadFile(fileName, content) {
-      const aTag = document.createElement('a');
-      const blob = new Blob([content]);
-
-      aTag.download = fileName;
-      aTag.href = URL.createObjectURL(blob);
-
-      aTag.click();
-      URL.revokeObjectURL(blob);
     },
     checkUpdate() {
       this.$message.info({
@@ -279,7 +285,7 @@ export default {
         localStorage.clear();
         this.$message.success(this.$t('message.delete_success'));
         window.location.reload();
-      }).catch(e => {
+      }).catch((e) => {
       });
     },
     showHotkeys() {
@@ -319,5 +325,23 @@ export default {
 
 .setting-main-dialog .setting-card .setting-row {
   flex-wrap: wrap;
+}
+
+/* add height: fix el-select jitter when multiple*/
+.setting-main-dialog .setting-card .setting-row .setting-font-select .el-select__tags .el-tag {
+  height: 21px;
+  max-width: 98%;
+}
+
+/*label style inside el-select multiple*/
+.setting-main-dialog .setting-card .setting-row .setting-font-select .el-select__tags .el-tag .el-select__tags-text {
+  display: inline-block;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/*fix close icon vertical align*/
+.setting-main-dialog .setting-card .setting-row .setting-font-select .el-select__tags .el-tag .el-tag__close {
+  vertical-align: super;
 }
 </style>
